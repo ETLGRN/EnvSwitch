@@ -73,5 +73,9 @@ struct MainWindowView: View {
         .alert("Error", isPresented: .constant(model.lastError != nil)) {
             Button("OK") { model.lastError = nil }
         } message: { Text(model.lastError ?? "") }
+        .sheet(isPresented: .constant(model.needsHook)) {
+            FirstRunView(onInstallHook: { model.installZshHook(); model.objectWillChange.send() },
+                         symlinkCommand: model.cliSymlinkCommand)
+        }
     }
 }

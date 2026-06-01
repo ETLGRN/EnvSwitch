@@ -74,4 +74,16 @@ final class AppModel: ObservableObject {
     func setLaunchctlSync(_ on: Bool) {
         do { try service.setLaunchctlSync(on); launchctlSync = on } catch { lastError = "\(error)" }
     }
+
+    func installZshHook() {
+        let zshrc = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".zshrc")
+        do { try Installer.installZshHook(into: zshrc, paths: .resolved()) } catch { lastError = "\(error)" }
+    }
+    var needsHook: Bool {
+        let zshrc = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".zshrc")
+        return !Installer.hookInstalled(in: zshrc)
+    }
+    var cliSymlinkCommand: String {
+        Installer.symlinkCommand(cliPath: Bundle.main.bundlePath + "/Contents/MacOS/envswitch")
+    }
 }
