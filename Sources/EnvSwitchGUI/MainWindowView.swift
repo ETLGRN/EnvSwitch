@@ -44,7 +44,7 @@ struct MainWindowView: View {
                     Text(model.selectedEnvironment ?? "—").font(.title2)
                     Spacer()
                     Button { showHelp = true } label: { Image(systemName: "questionmark.circle") }
-                        .help("How to use / install the CLI")
+                        .help("使用说明 / 安装 CLI")
                     Button("Reload") { model.reloadActive() }
                         .help("Regenerate active.env now (base + active environment)")
                     if let env = model.selectedEnvironment, env != "base" {

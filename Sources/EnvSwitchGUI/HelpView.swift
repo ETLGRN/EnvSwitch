@@ -12,9 +12,9 @@ struct HelpView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             HStack {
-                Text("How to use EnvSwitch").font(.title2.bold())
+                Text("使用说明").font(.title2.bold())
                 Spacer()
-                Button("Done", action: onClose).keyboardShortcut(.defaultAction)
+                Button("完成", action: onClose).keyboardShortcut(.defaultAction)
             }
             .padding()
 
@@ -22,37 +22,37 @@ struct HelpView: View {
 
             ScrollView {
                 VStack(alignment: .leading, spacing: 18) {
-                    section("What it does") {
-                        Text("Manage several environment-variable profiles and switch between them. The active profile is written to ~/.config/envswitch/active.env, which your shell loads. The “base” layer always applies; each environment overrides/extends it.")
+                    section("这是什么") {
+                        Text("管理多套环境变量配置并一键切换。当前激活的配置会写入 ~/.config/envswitch/active.env，由终端加载。“base” 公共层始终生效，各环境在其上覆盖或新增。")
                     }
 
-                    section("1. Edit variables") {
-                        Text("Pick “base” or an environment on the left, then add KEY/value pairs at the bottom. Turn on “Secret” to store a value in the macOS Keychain instead of plain text. Use the eye icon to reveal a secret and the copy icon (or double-click a cell) to copy a key or value.")
+                    section("① 编辑变量") {
+                        Text("在左侧选择 “base” 或某个环境，然后在底部添加 KEY / 值。打开 “Secret” 开关可把值存入 macOS 钥匙串而非明文。点眼睛图标可显示 secret，点复制图标（或双击单元格）可复制 key 或值。")
                     }
 
-                    section("2. Activate") {
-                        Text("Click “Activate” on an environment to make it the active one. Editing the active environment (or base) updates active.env immediately. Use “Reload” to regenerate it on demand.")
+                    section("② 激活") {
+                        Text("点环境上的 “Activate” 将其设为当前激活环境。编辑激活环境（或 base）会立即更新 active.env。也可点 “Reload” 手动重新生成。")
                     }
 
-                    section("3. Apply to your terminal") {
-                        Text("New terminals load the active environment automatically once the zsh hook is installed. For a terminal that is already open, run:")
+                    section("③ 应用到终端") {
+                        Text("装好 zsh hook 后，新开的终端会自动加载当前激活环境。对于已经打开的终端，执行：")
                         CommandRow(command: applyCommand)
-                        Button(hookInstalled ? "zsh hook installed ✓" : "Install zsh hook into ~/.zshrc") {
+                        Button(hookInstalled ? "zsh hook 已安装 ✓" : "把 zsh hook 写入 ~/.zshrc") {
                             onInstallHook(); hookInstalled = true
                         }
                         .disabled(hookInstalled)
                     }
 
-                    section("4. Install the CLI (optional)") {
-                        Text("To use the `envswitch` command in the terminal, run this once, then open a new terminal. (~/.local/bin must be on your PATH.)")
+                    section("④ 安装命令行工具 CLI（可选）") {
+                        Text("想在终端使用 `envswitch` 命令，执行下面这条（一次即可），然后新开一个终端。（需保证 ~/.local/bin 在你的 PATH 中。）")
                         CommandRow(command: symlinkCommand)
-                        Text("Common CLI commands:").font(.subheadline.bold()).padding(.top, 4)
+                        Text("常用 CLI 命令：").font(.subheadline.bold()).padding(.top, 4)
                         VStack(alignment: .leading, spacing: 3) {
-                            mono("envswitch list                 # list environments")
-                            mono("envswitch use <env>            # switch active environment")
-                            mono("eval \"$(envswitch export)\"      # apply to the current shell")
-                            mono("envswitch set <env> KEY VALUE  # set a variable")
-                            mono("envswitch set <env> KEY --secret  # store in Keychain")
+                            mono("envswitch list                 # 列出所有环境")
+                            mono("envswitch use <env>            # 切换激活环境")
+                            mono("eval \"$(envswitch export)\"      # 应用到当前终端")
+                            mono("envswitch set <env> KEY VALUE  # 设置变量")
+                            mono("envswitch set <env> KEY --secret  # 存入钥匙串")
                         }
                     }
                 }

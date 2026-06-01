@@ -15,8 +15,8 @@ struct MenuBarView: View {
                 }
             }
             Divider()
-            Button("Edit Environments…") { openWindow(id: "main") }
-            Button("How to use…") { openWindow(id: "main") }
+            Button("编辑环境…") { openWindow(id: "main") }
+            Button("使用说明…") { openWindow(id: "main") }
             Button("Quit") { NSApplication.shared.terminate(nil) }
                 .keyboardShortcut("q")
         }
