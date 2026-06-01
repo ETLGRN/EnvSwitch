@@ -8,10 +8,12 @@ Configuration lives under your home directory at `~/.config/envswitch/` — neve
 
 On macOS, environment variables are inherited by a process **when it starts** from its parent. Unlike `/etc/hosts` (which is read live on every lookup), there is no way to globally change variables for already-running processes. EnvSwitch therefore activates an environment like this:
 
-1. When you switch environments, EnvSwitch merges `base` + the chosen environment and writes the result to `~/.config/envswitch/active.env` (a file of `export KEY='VALUE'` lines, mode `600`).
+1. When you switch (or edit) environments, EnvSwitch merges `base` + the active environment and writes the result to `~/.config/envswitch/active.env` (a file of `export KEY='VALUE'` lines, mode `600`). Editing the active environment or base regenerates this file immediately.
 2. A one-line hook in your `~/.zshrc` sources that file, so **every new terminal automatically loads the active environment**.
-3. For terminals that are already open, run `envswitch reload` (or `eval "$(envswitch export)"`) to refresh them.
+3. For a terminal that is **already open**, run `eval "$(envswitch export)"` to apply the active environment to that shell. (`envswitch reload` only regenerates `active.env`; it cannot change a process that is already running.)
 4. Optionally, enable **launchctl sync** so that GUI apps launched afterward (from Dock/Spotlight) also see the variables (`launchctl setenv`). This is off by default and requires restarting the target app.
+
+If no environment is activated, the **base layer alone** is still exported — so variables you only need everywhere can live in `base`.
 
 Only **zsh** is supported.
 
@@ -38,7 +40,22 @@ TOKEN = "prod-token"
 
 All values are stored as plain text in `config.toml`, and the generated `active.env` (mode `600`) holds the resolved values the shell sources. Because environment variables are inherently plain text once exported, EnvSwitch does not attempt to encrypt them; keep secrets out of any synced/committed copy of `config.toml` if that matters to you.
 
-## Installation (from source)
+## Install
+
+### From the prebuilt app (.dmg)
+
+1. Open `dist/EnvSwitch-0.1.0.dmg` and drag **EnvSwitch.app** to *Applications*.
+2. First launch only: because the app is ad-hoc signed (not notarized), right-click it → **Open**, or run:
+   ```bash
+   xattr -dr com.apple.quarantine /Applications/EnvSwitch.app
+   ```
+3. On first launch the app offers to install the zsh hook and shows the command to put the CLI on your PATH. The embedded CLI lives at `/Applications/EnvSwitch.app/Contents/Resources/envswitch`; link it without sudo:
+   ```bash
+   mkdir -p ~/.local/bin && ln -sf "/Applications/EnvSwitch.app/Contents/Resources/envswitch" ~/.local/bin/envswitch
+   ```
+   (Make sure `~/.local/bin` is on your `PATH`, then open a new terminal.)
+
+### From source
 
 Requires Swift 5.9+ / macOS 14+.
 
@@ -46,22 +63,20 @@ Requires Swift 5.9+ / macOS 14+.
 git clone <this-repo> && cd envswitch
 swift build -c release
 
-# Put the CLI on your PATH:
-sudo ln -sf "$(pwd)/.build/release/envswitch" /usr/local/bin/envswitch
+# Put the CLI on your PATH (no sudo needed):
+mkdir -p ~/.local/bin && ln -sf "$(pwd)/.build/release/envswitch" ~/.local/bin/envswitch
 
 # Install the zsh hook (or paste the output into ~/.zshrc yourself):
 envswitch shell-init >> ~/.zshrc
 exec zsh   # reload your shell
 ```
 
-When packaged as a `.app`, the GUI embeds the `envswitch` binary and, on first run, offers to install the zsh hook and shows the symlink command for putting the CLI on your PATH.
-
 ## CLI reference
 
 ```
 envswitch list                 # list environments, marking the active one with *
 envswitch use <env>            # switch active environment (new shells pick it up)
-envswitch reload               # refresh the current shell's active.env
+envswitch reload               # regenerate active.env from base + the active environment
 envswitch current              # show the active environment and its exports
 envswitch get KEY              # print a resolved variable value
 envswitch set <env> KEY VALUE  # set a variable (use "base" as <env> for the base layer)
@@ -80,6 +95,15 @@ envswitch shell-init           # print the zsh hook to add to ~/.zshrc
 envswitch use dev      # switch globally (affects new shells)
 eval "$(envswitch export)"   # apply to THIS shell right now
 ```
+
+## GUI
+
+- **Menu bar** (`switch.2` icon): the list of environments with a filled dot on the active one — click to switch instantly. Also offers *Edit Environments…* and *How to use…* (both open the main window).
+- **Main window**: a sidebar with `base` + your environments, and a table of the selected layer's variables. Add variables with the KEY / value fields at the bottom; **double-click** (or right-click → Copy, or the copy icon) to copy a key or value; the trash icon deletes a variable.
+  - **Activate** sets the selected environment as active; **Reload** regenerates `active.env` on demand. A footer shows the `eval "$(envswitch export)"` command (with a copy button) for already-open terminals.
+  - The **?** button opens an in-app, Chinese usage guide covering activation, applying to a terminal, and installing the CLI.
+- **Settings**: toggle launchctl sync.
+- On first launch a setup sheet offers to install the zsh hook and shows the CLI symlink command.
 
 ## Architecture
 
