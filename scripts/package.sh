@@ -34,6 +34,11 @@ cp "$RELEASE_DIR/EnvSwitchGUI" "$CONTENTS/MacOS/$APP_NAME"
 cp "$RELEASE_DIR/envswitch" "$CONTENTS/Resources/envswitch"
 chmod +x "$CONTENTS/MacOS/$APP_NAME" "$CONTENTS/Resources/envswitch"
 
+# App icon
+if [ -f "Resources/AppIcon.icns" ]; then
+  cp "Resources/AppIcon.icns" "$CONTENTS/Resources/AppIcon.icns"
+fi
+
 cat > "$CONTENTS/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
@@ -42,6 +47,7 @@ cat > "$CONTENTS/Info.plist" <<PLIST
     <key>CFBundleName</key><string>$APP_NAME</string>
     <key>CFBundleDisplayName</key><string>$APP_NAME</string>
     <key>CFBundleExecutable</key><string>$APP_NAME</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
     <key>CFBundlePackageType</key><string>APPL</string>
     <key>CFBundleShortVersionString</key><string>$VERSION</string>
