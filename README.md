@@ -96,9 +96,20 @@ Tests live in `Tests/EnvSwitchCoreTests` and run with `swift test`. (This projec
 
 For environment isolation, the CLI honors `ENVSWITCH_HOME` to point at an alternate config root (used by tests and for trying things out safely).
 
-## Packaging the .app (notes)
+## Packaging an installable app
 
-`swift run EnvSwitchGUI` is fine for development. To ship a real double-clickable `.app` with a working menu-bar item, wrap the `EnvSwitchGUI` target in a thin Xcode project (or a tool such as `swift-bundler`): set the `Info.plist` (`LSUIElement`, bundle id), embed the release `envswitch` binary under `Contents/MacOS/`, and code-sign. This packaging step is intentionally left out of the core build.
+Run the bundled script — it builds release binaries, assembles a signed `.app`, and produces a `.dmg`:
+
+```bash
+scripts/package.sh
+# Produces:
+#   dist/EnvSwitch.app
+#   dist/EnvSwitch-0.1.0.dmg
+```
+
+The script ad-hoc code-signs the bundle (no Apple Developer account needed). The GUI is the bundle's main executable (`Contents/MacOS/EnvSwitch`), and the `envswitch` CLI is embedded at `Contents/Resources/envswitch` (kept out of `MacOS/` because macOS volumes are case-insensitive and `EnvSwitch`/`envswitch` would otherwise collide). On first launch the app offers to install the zsh hook and shows the command to symlink the embedded CLI onto your PATH.
+
+> Because the app is ad-hoc signed (not notarized), the first launch needs a right-click → **Open** (or `xattr -dr com.apple.quarantine EnvSwitch.app`) to get past Gatekeeper. For wider distribution, sign with a Developer ID and notarize.
 
 ## Design docs
 

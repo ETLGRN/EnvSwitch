@@ -84,6 +84,6 @@ final class AppModel: ObservableObject {
         return !Installer.hookInstalled(in: zshrc)
     }
     var cliSymlinkCommand: String {
-        Installer.symlinkCommand(cliPath: Bundle.main.bundlePath + "/Contents/MacOS/envswitch")
+        Installer.symlinkCommand(cliPath: Bundle.main.bundlePath + "/Contents/Resources/envswitch")
     }
 }
