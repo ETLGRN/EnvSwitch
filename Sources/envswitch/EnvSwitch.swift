@@ -1,9 +1,6 @@
 import ArgumentParser
 import EnvSwitchCore
 import Foundation
-#if canImport(Darwin)
-import Darwin
-#endif
 
 private func makeService() -> EnvSwitchService {
     EnvSwitchService(paths: .resolved())
@@ -63,16 +60,13 @@ extension EnvSwitch {
         }
     }
     struct Set: ParsableCommand {
-        static let configuration = CommandConfiguration(abstract: "Set a variable.")
+        static let configuration = CommandConfiguration(abstract: "Set a variable (use \"base\" as <env> for the base layer).")
         @Argument var environment: String
         @Argument var key: String
-        @Argument var value: String?
-        @Flag(name: .long, help: "Store value in the macOS Keychain.") var secret = false
+        @Argument var value: String
         func run() throws {
             let env = environment == "base" ? nil : environment
-            var v = value ?? ""
-            if secret && (value == nil) { v = String(cString: getpass("Secret value: ")) }
-            try makeService().setVariable(environment: env, key: key, value: v, secret: secret)
+            try makeService().setVariable(environment: env, key: key, value: value)
         }
     }
     struct Unset: ParsableCommand {
@@ -128,7 +122,7 @@ extension EnvSwitch {
                 if value.count >= 2, (value.first == "\"" || value.first == "'"), value.first == value.last {
                     value = String(value.dropFirst().dropLast())
                 }
-                try service.setVariable(environment: env, key: key, value: value, secret: false)
+                try service.setVariable(environment: env, key: key, value: value)
             }
         }
     }

@@ -27,7 +27,7 @@ struct HelpView: View {
                     }
 
                     section("① 编辑变量") {
-                        Text("在左侧选择 “base” 或某个环境，然后在底部添加 KEY / 值。打开 “Secret” 开关可把值存入 macOS 钥匙串而非明文。点眼睛图标可显示 secret，点复制图标（或双击单元格）可复制 key 或值。")
+                        Text("在左侧选择 “base” 或某个环境，然后在底部添加 KEY / 值。点复制图标（或双击单元格）可复制 key 或值，点垃圾桶图标可删除。")
                     }
 
                     section("② 激活") {
@@ -52,7 +52,7 @@ struct HelpView: View {
                             mono("envswitch use <env>            # 切换激活环境")
                             mono("eval \"$(envswitch export)\"      # 应用到当前终端")
                             mono("envswitch set <env> KEY VALUE  # 设置变量")
-                            mono("envswitch set <env> KEY --secret  # 存入钥匙串")
+                            mono("envswitch unset <env> KEY      # 删除变量")
                         }
                     }
                 }

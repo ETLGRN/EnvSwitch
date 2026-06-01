@@ -6,7 +6,6 @@ struct MainWindowView: View {
     @State private var newEnvName = ""
     @State private var newKey = ""
     @State private var newValue = ""
-    @State private var newSecret = false
     @State private var showFirstRun = false
     @State private var showError = false
     @State private var showHelp = false
@@ -62,26 +61,14 @@ struct MainWindowView: View {
                             .help("Double-click or right-click to copy the key")
                     }
                     TableColumn("Value") { row in
-                        Text(row.isSecret && !row.revealed ? "••••••" : row.value)
+                        Text(row.value)
                             .textSelection(.enabled)
-                            .foregroundStyle(row.isSecret && !row.revealed ? .secondary : .primary)
                             .onTapGesture(count: 2) { model.copyValue(row) }
                             .contextMenu { Button("Copy value") { model.copyValue(row) } }
                             .help("Double-click or right-click to copy the value")
                     }
-                    TableColumn("🔒") { Text($0.isSecret ? "🔒" : "") }
-                        .width(28)
                     TableColumn("Actions") { row in
                         HStack(spacing: 10) {
-                            if row.isSecret {
-                                Button {
-                                    row.revealed ? model.hide(row) : model.reveal(row)
-                                } label: {
-                                    Image(systemName: row.revealed ? "eye.slash" : "eye")
-                                }
-                                .buttonStyle(.borderless)
-                                .help(row.revealed ? "Hide" : "Reveal (reads Keychain)")
-                            }
                             Button { model.copyValue(row) } label: {
                                 Image(systemName: "doc.on.doc")
                             }
@@ -94,17 +81,16 @@ struct MainWindowView: View {
                             .help("Delete")
                         }
                     }
-                    .width(110)
+                    .width(80)
                 }
 
                 HStack {
                     TextField("KEY", text: $newKey)
                     TextField("value", text: $newValue)
-                    Toggle("Secret", isOn: $newSecret)
                     Button("Set") {
                         guard !newKey.isEmpty else { return }
-                        model.setVariable(key: newKey, value: newValue, secret: newSecret)
-                        newKey = ""; newValue = ""; newSecret = false
+                        model.setVariable(key: newKey, value: newValue)
+                        newKey = ""; newValue = ""
                     }
                 }.padding(.horizontal)
 

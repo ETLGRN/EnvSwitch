@@ -29,16 +29,14 @@ EDITOR = "vim"
 
 [env.dev]
 API_HOST = "dev.example.com"
-TOKEN = { secret = true }      # value stored in the macOS Keychain, not here
+TOKEN = "dev-token"
 
 [env.prod]
 API_HOST = "prod.example.com"
-TOKEN = { secret = true }
+TOKEN = "prod-token"
 ```
 
-### Secrets
-
-Variables marked `{ secret = true }` keep their real value in the **macOS Keychain** (service `envswitch`, account `<env>/<KEY>`; the base layer uses `base/<KEY>`). The TOML file only records the marker, and the generated `active.env` (mode `600`) is where resolved secret values are written for the shell to source.
+All values are stored as plain text in `config.toml`, and the generated `active.env` (mode `600`) holds the resolved values the shell sources. Because environment variables are inherently plain text once exported, EnvSwitch does not attempt to encrypt them; keep secrets out of any synced/committed copy of `config.toml` if that matters to you.
 
 ## Installation (from source)
 
@@ -67,10 +65,9 @@ envswitch reload               # refresh the current shell's active.env
 envswitch current              # show the active environment and its exports
 envswitch get KEY              # print a resolved variable value
 envswitch set <env> KEY VALUE  # set a variable (use "base" as <env> for the base layer)
-envswitch set <env> KEY --secret   # store the value in the Keychain (prompts if VALUE omitted)
 envswitch unset <env> KEY      # remove a variable
 envswitch add <env>            # create an environment
-envswitch rm <env>             # delete an environment (and its secrets)
+envswitch rm <env>             # delete an environment
 envswitch edit                 # open config.toml in $EDITOR
 envswitch export [<env>]       # print export statements for eval
 envswitch import <env> <.env>  # import KEY=VALUE lines from a .env file
@@ -88,7 +85,7 @@ eval "$(envswitch export)"   # apply to THIS shell right now
 
 A SwiftPM workspace with three pieces sharing one core library:
 
-- **EnvSwitchCore** — TOML config read/write (atomic), `base + env` merge, Keychain access, `active.env` generation with shell escaping, the zsh hook snippet, and `launchctl` sync. All behavior is unit-tested.
+- **EnvSwitchCore** — TOML config read/write (atomic), `base + env` merge, `active.env` generation with shell escaping, the zsh hook snippet, and `launchctl` sync. All behavior is unit-tested.
 - **envswitch** — the CLI (swift-argument-parser), a thin wrapper over Core.
 - **EnvSwitchGUI** — SwiftUI app: `MenuBarExtra` for quick switching, a main window with the environment list and variable editor, and a settings pane.
 

@@ -16,10 +16,10 @@ private func makeTempPaths() throws -> EnvPaths {
     let cfg = EnvConfig(
         active: "dev",
         launchctlSync: true,
-        base: ["LANG": .plain("zh_CN.UTF-8")],
+        base: ["LANG": "zh_CN.UTF-8"],
         environments: [
-            "dev": ["API_HOST": .plain("dev.example.com"), "TOKEN": .secret],
-            "prod": ["API_HOST": .plain("prod.example.com")],
+            "dev": ["API_HOST": "dev.example.com", "TOKEN": "abc123"],
+            "prod": ["API_HOST": "prod.example.com"],
         ]
     )
     try store.save(cfg)

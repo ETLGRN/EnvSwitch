@@ -43,24 +43,14 @@ public struct ConfigStore {
     private static func parseVarMap(_ table: TOMLTable) -> VarMap {
         var map: VarMap = [:]
         for key in table.keys {
-            guard let node = table[key] else { continue }
-            if let s = node.string { map[key] = .plain(s) }
-            else if let inner = node.table, inner["secret"]?.bool == true { map[key] = .secret }
+            if let s = table[key]?.string { map[key] = s }
         }
         return map
     }
 
     private static func serializeVarMap(_ map: VarMap) -> TOMLTable {
         let table = TOMLTable()
-        for (key, value) in map {
-            switch value {
-            case .plain(let v): table[key] = v
-            case .secret:
-                let inline = TOMLTable(inline: true)
-                inline["secret"] = true
-                table[key] = inline
-            }
-        }
+        for (key, value) in map { table[key] = value }
         return table
     }
 }

@@ -15,9 +15,7 @@ final class AppModel: ObservableObject {
     struct VariableRow: Identifiable {
         let id = UUID()
         var key: String
-        var value: String      // plain value, or the revealed secret once `revealed` is true
-        var isSecret: Bool
-        var revealed: Bool = false   // for secrets: whether the real value is currently shown
+        var value: String
     }
 
     private let service = EnvSwitchService(paths: .resolved())
@@ -39,8 +37,7 @@ final class AppModel: ObservableObject {
             let cfg = try service.loadConfig()
             let map = env == "base" ? cfg.base : (cfg.environments[env] ?? [:])
             variables = map.keys.sorted().map { key in
-                let v = map[key]!
-                return VariableRow(key: key, value: v.literal ?? "", isSecret: v.isSecret)
+                VariableRow(key: key, value: map[key]!)
             }
         } catch { lastError = "\(error)" }
     }
@@ -59,10 +56,10 @@ final class AppModel: ObservableObject {
         catch { lastError = "\(error)" }
     }
 
-    func setVariable(key: String, value: String, secret: Bool) {
+    func setVariable(key: String, value: String) {
         guard let env = selectedEnvironment else { return }
         let target = env == "base" ? nil : env
-        do { try service.setVariable(environment: target, key: key, value: value, secret: secret); loadVariables() }
+        do { try service.setVariable(environment: target, key: key, value: value); loadVariables() }
         catch { lastError = "\(error)" }
     }
 
@@ -73,35 +70,9 @@ final class AppModel: ObservableObject {
         catch { lastError = "\(error)" }
     }
 
-    private var targetLayer: String? {
-        guard let env = selectedEnvironment else { return nil }
-        return env == "base" ? nil : env
-    }
-
-    /// The actual value of a variable (resolving secrets from the Keychain).
-    private func actualValue(forKey key: String) -> String? {
-        do { return try service.revealValue(environment: targetLayer, key: key) }
-        catch { lastError = "\(error)"; return nil }
-    }
-
-    /// Reveal a secret row in-place (fetches the real value from the Keychain).
-    func reveal(_ row: VariableRow) {
-        guard let value = actualValue(forKey: row.key),
-              let idx = variables.firstIndex(where: { $0.id == row.id }) else { return }
-        variables[idx].value = value
-        variables[idx].revealed = true
-    }
-
-    func hide(_ row: VariableRow) {
-        guard let idx = variables.firstIndex(where: { $0.id == row.id }) else { return }
-        variables[idx].value = ""
-        variables[idx].revealed = false
-    }
-
-    /// Copy a variable's actual value to the clipboard (works for plain and secret).
+    /// Copy a variable's value to the clipboard.
     func copyValue(_ row: VariableRow) {
-        guard let value = actualValue(forKey: row.key) else { return }
-        copyString(value)
+        copyString(row.value)
     }
 
     /// Copy any string to the clipboard.

@@ -1,21 +1,7 @@
 import Foundation
 
-public enum VarValue: Equatable {
-    case plain(String)
-    case secret   // real value stored in Keychain
-
-    public var isSecret: Bool {
-        if case .secret = self { return true }
-        return false
-    }
-
-    public var literal: String? {
-        if case .plain(let v) = self { return v }
-        return nil
-    }
-}
-
-public typealias VarMap = [String: VarValue]
+/// A layer's variables: KEY = value. All values are plain text.
+public typealias VarMap = [String: String]
 
 public struct EnvConfig: Equatable {
     public var active: String?
@@ -39,6 +25,5 @@ public struct EnvConfig: Equatable {
 public enum EnvSwitchError: Error, Equatable {
     case parse(String)
     case environmentNotFound(String)
-    case keychain(String)
     case io(String)
 }
