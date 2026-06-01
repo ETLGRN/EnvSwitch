@@ -16,7 +16,8 @@ public enum Installer {
     }
 
     /// Suggested command to symlink the embedded CLI onto PATH.
+    /// Uses ~/.local/bin so it needs no sudo; ensure that directory is on your PATH.
     public static func symlinkCommand(cliPath: String) -> String {
-        "sudo ln -sf \"\(cliPath)\" /usr/local/bin/envswitch"
+        "mkdir -p ~/.local/bin && ln -sf \"\(cliPath)\" ~/.local/bin/envswitch"
     }
 }

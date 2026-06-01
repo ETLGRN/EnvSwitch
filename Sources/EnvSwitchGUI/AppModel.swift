@@ -101,9 +101,14 @@ final class AppModel: ObservableObject {
     /// Copy a variable's actual value to the clipboard (works for plain and secret).
     func copyValue(_ row: VariableRow) {
         guard let value = actualValue(forKey: row.key) else { return }
+        copyString(value)
+    }
+
+    /// Copy any string to the clipboard.
+    func copyString(_ string: String) {
         let pb = NSPasteboard.general
         pb.clearContents()
-        pb.setString(value, forType: .string)
+        pb.setString(string, forType: .string)
     }
 
     /// Command the user can paste to apply the active environment to an already-open shell.

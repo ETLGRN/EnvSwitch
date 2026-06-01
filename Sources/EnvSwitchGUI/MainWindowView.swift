@@ -9,6 +9,7 @@ struct MainWindowView: View {
     @State private var newSecret = false
     @State private var showFirstRun = false
     @State private var showError = false
+    @State private var showHelp = false
 
     var body: some View {
         NavigationSplitView {
@@ -42,6 +43,8 @@ struct MainWindowView: View {
                 HStack {
                     Text(model.selectedEnvironment ?? "—").font(.title2)
                     Spacer()
+                    Button { showHelp = true } label: { Image(systemName: "questionmark.circle") }
+                        .help("How to use / install the CLI")
                     Button("Reload") { model.reloadActive() }
                         .help("Regenerate active.env now (base + active environment)")
                     if let env = model.selectedEnvironment, env != "base" {
@@ -51,11 +54,20 @@ struct MainWindowView: View {
                 }.padding(.horizontal)
 
                 Table(model.variables) {
-                    TableColumn("Key") { Text($0.key) }
+                    TableColumn("Key") { row in
+                        Text(row.key)
+                            .textSelection(.enabled)
+                            .onTapGesture(count: 2) { model.copyString(row.key) }
+                            .contextMenu { Button("Copy key") { model.copyString(row.key) } }
+                            .help("Double-click or right-click to copy the key")
+                    }
                     TableColumn("Value") { row in
                         Text(row.isSecret && !row.revealed ? "••••••" : row.value)
                             .textSelection(.enabled)
                             .foregroundStyle(row.isSecret && !row.revealed ? .secondary : .primary)
+                            .onTapGesture(count: 2) { model.copyValue(row) }
+                            .contextMenu { Button("Copy value") { model.copyValue(row) } }
+                            .help("Double-click or right-click to copy the value")
                     }
                     TableColumn("🔒") { Text($0.isSecret ? "🔒" : "") }
                         .width(28)
@@ -117,6 +129,12 @@ struct MainWindowView: View {
         .sheet(isPresented: $showFirstRun) {
             FirstRunView(onInstallHook: { model.installZshHook(); showFirstRun = false },
                          symlinkCommand: model.cliSymlinkCommand)
+        }
+        .sheet(isPresented: $showHelp) {
+            HelpView(symlinkCommand: model.cliSymlinkCommand,
+                     applyCommand: model.applyToShellCommand,
+                     onInstallHook: { model.installZshHook() },
+                     onClose: { showHelp = false })
         }
         .onChange(of: model.lastError) { _, newValue in showError = (newValue != nil) }
         .onAppear { showFirstRun = model.needsHook }
