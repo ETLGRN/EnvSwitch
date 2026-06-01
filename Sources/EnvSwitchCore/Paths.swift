@@ -12,6 +12,13 @@ public struct EnvPaths {
         EnvPaths(root: home.appendingPathComponent(".config/envswitch"))
     }
 
+    public static func resolved(environment: [String: String] = ProcessInfo.processInfo.environment) -> EnvPaths {
+        if let override = environment["ENVSWITCH_HOME"], !override.isEmpty {
+            return EnvPaths(root: URL(fileURLWithPath: override))
+        }
+        return .default()
+    }
+
     public func ensureRootExists() throws {
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
     }
