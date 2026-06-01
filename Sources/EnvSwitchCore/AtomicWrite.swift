@@ -12,6 +12,9 @@ enum AtomicWrite {
             } else {
                 try FileManager.default.moveItem(at: tmp, to: url)
             }
+            // replaceItemAt can preserve the pre-existing destination's permissions,
+            // so explicitly enforce the requested mode on the final destination.
+            try FileManager.default.setAttributes([.posixPermissions: posixPermissions], ofItemAtPath: url.path)
         } catch {
             try? FileManager.default.removeItem(at: tmp)
             throw EnvSwitchError.io("atomic write failed: \(error.localizedDescription)")

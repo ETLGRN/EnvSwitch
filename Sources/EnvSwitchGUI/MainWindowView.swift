@@ -6,6 +6,8 @@ struct MainWindowView: View {
     @State private var newKey = ""
     @State private var newValue = ""
     @State private var newSecret = false
+    @State private var showFirstRun = false
+    @State private var showError = false
 
     var body: some View {
         NavigationSplitView {
@@ -70,12 +72,14 @@ struct MainWindowView: View {
                 }.padding()
             }
         }
-        .alert("Error", isPresented: .constant(model.lastError != nil)) {
+        .alert("Error", isPresented: $showError) {
             Button("OK") { model.lastError = nil }
         } message: { Text(model.lastError ?? "") }
-        .sheet(isPresented: .constant(model.needsHook)) {
-            FirstRunView(onInstallHook: { model.installZshHook(); model.objectWillChange.send() },
+        .sheet(isPresented: $showFirstRun) {
+            FirstRunView(onInstallHook: { model.installZshHook(); showFirstRun = false },
                          symlinkCommand: model.cliSymlinkCommand)
         }
+        .onChange(of: model.lastError) { _, newValue in showError = (newValue != nil) }
+        .onAppear { showFirstRun = model.needsHook }
     }
 }

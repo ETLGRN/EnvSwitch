@@ -21,3 +21,13 @@ private func makeTempPaths() throws -> EnvPaths {
     let attrs = try FileManager.default.attributesOfItem(atPath: paths.activeFile.path)
     #expect((attrs[.posixPermissions] as? Int) == 0o600)
 }
+
+@Test func rewriteKeeps600Permissions() throws {
+    let paths = try makeTempPaths()
+    try ActiveFile.write(lines: ["export A='1'"], environmentName: "dev", paths: paths)
+    // simulate permission drift on the pre-existing destination
+    try FileManager.default.setAttributes([.posixPermissions: 0o644], ofItemAtPath: paths.activeFile.path)
+    try ActiveFile.write(lines: ["export A='2'"], environmentName: "dev", paths: paths)
+    let attrs = try FileManager.default.attributesOfItem(atPath: paths.activeFile.path)
+    #expect((attrs[.posixPermissions] as? Int) == 0o600)
+}
