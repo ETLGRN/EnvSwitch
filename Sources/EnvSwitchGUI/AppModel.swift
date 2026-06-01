@@ -1,6 +1,7 @@
 import Foundation
 import EnvSwitchCore
 import Combine
+import AppKit
 
 @MainActor
 final class AppModel: ObservableObject {
@@ -14,8 +15,9 @@ final class AppModel: ObservableObject {
     struct VariableRow: Identifiable {
         let id = UUID()
         var key: String
-        var value: String   // shown value; for secrets this is "" until revealed
+        var value: String      // plain value, or the revealed secret once `revealed` is true
         var isSecret: Bool
+        var revealed: Bool = false   // for secrets: whether the real value is currently shown
     }
 
     private let service = EnvSwitchService(paths: .resolved())
@@ -71,8 +73,49 @@ final class AppModel: ObservableObject {
         catch { lastError = "\(error)" }
     }
 
+    private var targetLayer: String? {
+        guard let env = selectedEnvironment else { return nil }
+        return env == "base" ? nil : env
+    }
+
+    /// The actual value of a variable (resolving secrets from the Keychain).
+    private func actualValue(forKey key: String) -> String? {
+        do { return try service.revealValue(environment: targetLayer, key: key) }
+        catch { lastError = "\(error)"; return nil }
+    }
+
+    /// Reveal a secret row in-place (fetches the real value from the Keychain).
+    func reveal(_ row: VariableRow) {
+        guard let value = actualValue(forKey: row.key),
+              let idx = variables.firstIndex(where: { $0.id == row.id }) else { return }
+        variables[idx].value = value
+        variables[idx].revealed = true
+    }
+
+    func hide(_ row: VariableRow) {
+        guard let idx = variables.firstIndex(where: { $0.id == row.id }) else { return }
+        variables[idx].value = ""
+        variables[idx].revealed = false
+    }
+
+    /// Copy a variable's actual value to the clipboard (works for plain and secret).
+    func copyValue(_ row: VariableRow) {
+        guard let value = actualValue(forKey: row.key) else { return }
+        let pb = NSPasteboard.general
+        pb.clearContents()
+        pb.setString(value, forType: .string)
+    }
+
+    /// Command the user can paste to apply the active environment to an already-open shell.
+    var applyToShellCommand: String { "eval \"$(envswitch export)\"" }
+
     func setLaunchctlSync(_ on: Bool) {
         do { try service.setLaunchctlSync(on); launchctlSync = on } catch { lastError = "\(error)" }
+    }
+
+    /// Regenerate active.env from base + the active environment (no edit required).
+    func reloadActive() {
+        do { try service.reload() } catch { lastError = "\(error)" }
     }
 
     func installZshHook() {

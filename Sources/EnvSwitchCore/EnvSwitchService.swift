@@ -36,6 +36,7 @@ public final class EnvSwitchService {
         cfg.environments[name] = nil
         if cfg.active == name { cfg.active = nil }
         try store.save(cfg)
+        try regenerateActiveFile(cfg: cfg)
     }
 
     /// environment == nil targets the base layer.
@@ -47,6 +48,8 @@ public final class EnvSwitchService {
         else { cfg.base[key] = stored }
         if secret { try keychain.set(secret: value, account: KeychainAccount.key(env: environment, name: key)) }
         try store.save(cfg)
+        // Keep active.env in sync so edits to base / the active environment go live.
+        try regenerateActiveFile(cfg: cfg)
     }
 
     public func unsetVariable(environment: String?, key: String) throws {
@@ -56,6 +59,7 @@ public final class EnvSwitchService {
         else { existing = cfg.base[key]; cfg.base[key] = nil }
         if existing == .secret { try keychain.delete(account: KeychainAccount.key(env: environment, name: key)) }
         try store.save(cfg)
+        try regenerateActiveFile(cfg: cfg)
     }
 
     // MARK: Activation
@@ -72,19 +76,27 @@ public final class EnvSwitchService {
         try regenerateActiveFile(cfg: cfg)
     }
 
+    /// Writes active.env from the base layer merged with the active environment (if any).
+    /// When no environment is active, base-layer variables are still exported.
     private func regenerateActiveFile(cfg: EnvConfig) throws {
-        guard let active = cfg.active else { try ActiveFile.clear(paths: paths); return }
-        let lines = try resolvedExportLines(cfg: cfg, environment: active)
-        try ActiveFile.write(lines: lines, environmentName: active, paths: paths)
+        let lines = try resolvedExportLines(cfg: cfg, environment: cfg.active)
+        try ActiveFile.write(lines: lines, environmentName: cfg.active ?? "base", paths: paths)
         if cfg.launchctlSync {
-            let resolved = try resolvedValues(cfg: cfg, environment: active)
+            let resolved = try resolvedValues(cfg: cfg, environment: cfg.active)
             try LaunchctlSync(runner: runner).apply(resolved)
         }
     }
 
     // MARK: Resolution (origin-aware secret lookup)
-    private func resolvedValues(cfg: EnvConfig, environment: String) throws -> [String: String] {
-        let merged = try Merge.merged(config: cfg, environment: environment)
+
+    /// base merged with the named environment (environment wins). nil → base only.
+    private func mergedMap(cfg: EnvConfig, environment: String?) throws -> VarMap {
+        guard let environment else { return cfg.base }
+        return try Merge.merged(config: cfg, environment: environment)
+    }
+
+    private func resolvedValues(cfg: EnvConfig, environment: String?) throws -> [String: String] {
+        let merged = try mergedMap(cfg: cfg, environment: environment)
         var out: [String: String] = [:]
         for (key, value) in merged {
             switch value {
@@ -98,9 +110,9 @@ public final class EnvSwitchService {
         return out
     }
 
-    private func resolvedExportLines(cfg: EnvConfig, environment: String) throws -> [String] {
+    private func resolvedExportLines(cfg: EnvConfig, environment: String?) throws -> [String] {
         let resolved = try resolvedValues(cfg: cfg, environment: environment)
-        let merged = try Merge.merged(config: cfg, environment: environment)
+        let merged = try mergedMap(cfg: cfg, environment: environment)
         var lines: [String] = []
         for key in merged.keys.sorted() {
             if let v = resolved[key] { lines.append("export \(key)=\(ShellExport.escape(v))") }
@@ -111,14 +123,24 @@ public final class EnvSwitchService {
 
     public func resolvedValue(forKey key: String) throws -> String? {
         let cfg = try store.load()
-        guard let active = cfg.active else { return nil }
-        return try resolvedValues(cfg: cfg, environment: active)[key]
+        return try resolvedValues(cfg: cfg, environment: cfg.active)[key]
+    }
+
+    /// Reveal a single variable's actual value for a given layer (base when environment == nil),
+    /// resolving secrets from the Keychain. Used by the GUI's reveal/copy actions.
+    public func revealValue(environment: String?, key: String) throws -> String? {
+        let cfg = try store.load()
+        let map = environment == nil ? cfg.base : (cfg.environments[environment!] ?? [:])
+        guard let value = map[key] else { return nil }
+        switch value {
+        case .plain(let v): return v
+        case .secret: return try keychain.get(account: KeychainAccount.key(env: environment, name: key))
+        }
     }
 
     public func exportScript() throws -> String {
         let cfg = try store.load()
-        guard let active = cfg.active else { return "" }
-        return try resolvedExportLines(cfg: cfg, environment: active).joined(separator: "\n") + "\n"
+        return try resolvedExportLines(cfg: cfg, environment: cfg.active).joined(separator: "\n") + "\n"
     }
 
     public func setLaunchctlSync(_ enabled: Bool) throws {

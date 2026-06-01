@@ -36,7 +36,8 @@ extension EnvSwitch {
         @Argument var environment: String
         func run() throws {
             try makeService().use(environment)
-            print("Activated \(environment). New shells pick it up automatically; run `envswitch reload` in open shells.")
+            print("Activated \(environment). New shells load it automatically.")
+            print("For an already-open shell, run:  eval \"$(envswitch export)\"")
         }
     }
     struct Reload: ParsableCommand {

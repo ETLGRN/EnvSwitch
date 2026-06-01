@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 
 struct MainWindowView: View {
     @EnvironmentObject var model: AppModel
@@ -41,6 +42,8 @@ struct MainWindowView: View {
                 HStack {
                     Text(model.selectedEnvironment ?? "—").font(.title2)
                     Spacer()
+                    Button("Reload") { model.reloadActive() }
+                        .help("Regenerate active.env now (base + active environment)")
                     if let env = model.selectedEnvironment, env != "base" {
                         Button("Activate") { model.activate(env) }
                             .disabled(env == model.activeName)
@@ -50,14 +53,36 @@ struct MainWindowView: View {
                 Table(model.variables) {
                     TableColumn("Key") { Text($0.key) }
                     TableColumn("Value") { row in
-                        Text(row.isSecret ? "••••••" : row.value)
+                        Text(row.isSecret && !row.revealed ? "••••••" : row.value)
+                            .textSelection(.enabled)
+                            .foregroundStyle(row.isSecret && !row.revealed ? .secondary : .primary)
                     }
-                    TableColumn("Secret") { Text($0.isSecret ? "🔒" : "") }
-                    TableColumn("") { row in
-                        Button(role: .destructive) { model.unsetVariable(key: row.key) } label: {
-                            Image(systemName: "trash")
+                    TableColumn("🔒") { Text($0.isSecret ? "🔒" : "") }
+                        .width(28)
+                    TableColumn("Actions") { row in
+                        HStack(spacing: 10) {
+                            if row.isSecret {
+                                Button {
+                                    row.revealed ? model.hide(row) : model.reveal(row)
+                                } label: {
+                                    Image(systemName: row.revealed ? "eye.slash" : "eye")
+                                }
+                                .buttonStyle(.borderless)
+                                .help(row.revealed ? "Hide" : "Reveal (reads Keychain)")
+                            }
+                            Button { model.copyValue(row) } label: {
+                                Image(systemName: "doc.on.doc")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Copy value")
+                            Button(role: .destructive) { model.unsetVariable(key: row.key) } label: {
+                                Image(systemName: "trash")
+                            }
+                            .buttonStyle(.borderless)
+                            .help("Delete")
                         }
                     }
+                    .width(110)
                 }
 
                 HStack {
@@ -69,7 +94,21 @@ struct MainWindowView: View {
                         model.setVariable(key: newKey, value: newValue, secret: newSecret)
                         newKey = ""; newValue = ""; newSecret = false
                     }
-                }.padding()
+                }.padding(.horizontal)
+
+                HStack(spacing: 8) {
+                    Text("To apply to an already-open terminal, run:")
+                        .font(.footnote).foregroundStyle(.secondary)
+                    Text(model.applyToShellCommand)
+                        .font(.system(.footnote, design: .monospaced))
+                        .textSelection(.enabled)
+                    Button {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(model.applyToShellCommand, forType: .string)
+                    } label: { Image(systemName: "doc.on.doc") }
+                        .buttonStyle(.borderless)
+                        .help("Copy command")
+                }.padding([.horizontal, .bottom])
             }
         }
         .alert("Error", isPresented: $showError) {
