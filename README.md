@@ -4,6 +4,22 @@ A macOS tool for managing multiple local environment-variable profiles and switc
 
 Configuration lives under your home directory at `~/.config/envswitch/` — never inside project folders.
 
+## Features
+
+- Multiple environment profiles plus a shared **base** layer; switch with one click.
+- **GUI** (menu-bar quick switch + editor window) and **CLI** (`envswitch`) that share one core.
+- Single TOML config under `~/.config/envswitch/` — nothing in your project folders.
+- New terminals auto-load the active environment via a zsh hook; apply to an already-open shell with one command.
+- Optional **launchctl sync** so GUI apps launched afterward see the variables.
+- Plain-text values, **zsh**, **macOS 14+**.
+
+## Quick start
+
+1. **Install** — open `dist/EnvSwitch-0.1.0.dmg`, drag **EnvSwitch.app** to *Applications* (first launch: right-click → **Open**). Or build from source (see [Install](#install)).
+2. **Add variables** — open EnvSwitch, pick `base` or create an environment, add `KEY` / value at the bottom. Click **Activate** to make an environment current (variables in `base` apply even without activating).
+3. **Wire up your shell** — accept the first-run prompt to install the zsh hook (or run `envswitch shell-init >> ~/.zshrc`).
+4. **Use it** — open a new terminal and your variables are loaded. For a terminal that is already open, run `eval "$(envswitch export)"`.
+
 ## How activation works (read this first)
 
 On macOS, environment variables are inherited by a process **when it starts** from its parent. Unlike `/etc/hosts` (which is read live on every lookup), there is no way to globally change variables for already-running processes. EnvSwitch therefore activates an environment like this:
