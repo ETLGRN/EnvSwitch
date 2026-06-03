@@ -147,8 +147,3 @@ scripts/package.sh
 The script ad-hoc code-signs the bundle (no Apple Developer account needed). The GUI is the bundle's main executable (`Contents/MacOS/EnvSwitch`), and the `envswitch` CLI is embedded at `Contents/Resources/envswitch` (kept out of `MacOS/` because macOS volumes are case-insensitive and `EnvSwitch`/`envswitch` would otherwise collide). On first launch the app offers to install the zsh hook and shows the command to symlink the embedded CLI onto your PATH.
 
 > Because the app is ad-hoc signed (not notarized), the first launch needs a right-click → **Open** (or `xattr -dr com.apple.quarantine EnvSwitch.app`) to get past Gatekeeper. For wider distribution, sign with a Developer ID and notarize.
-
-## Design docs
-
-- Spec: `docs/superpowers/specs/2026-06-01-envswitch-design.md`
-- Implementation plan: `docs/superpowers/plans/2026-06-01-envswitch.md`
