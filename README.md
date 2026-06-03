@@ -1,5 +1,7 @@
 # EnvSwitch
 
+[English](README.en.md) | **中文**
+
 一个用于在 macOS 上管理多套本地环境变量配置、并一键切换的工具 —— 类似 [SwitchHosts](https://github.com/oldj/SwitchHosts)，但管理的是环境变量。同时提供 **命令行工具**（`envswitch`）和 **图形界面**（菜单栏快速切换 + 编辑窗口）。
 
 配置统一存放在用户主目录下的 `~/.config/envswitch/`，**绝不写进项目目录**。
