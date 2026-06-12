@@ -64,9 +64,12 @@ extension EnvSwitch {
         @Argument var environment: String
         @Argument var key: String
         @Argument var value: String
+        @Option(name: .long, help: "Assign the variable to a group (display only).")
+        var group: String?
         func run() throws {
             let env = environment == "base" ? nil : environment
-            try makeService().setVariable(environment: env, key: key, value: value)
+            try makeService().setVariable(environment: env, key: key, value: value,
+                                          group: group == nil ? nil : .some(group))
         }
     }
     struct Unset: ParsableCommand {

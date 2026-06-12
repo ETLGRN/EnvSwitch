@@ -16,10 +16,10 @@ public struct ConfigStore {
         var cfg = EnvConfig()
         cfg.active = table["active"]?.string
         cfg.launchctlSync = table["launchctl_sync"]?.bool ?? false
-        if let base = table["base"]?.table { cfg.base = Self.parseVarMap(base) }
+        if let base = table["base"]?.table { cfg.base = Self.parseVarList(base) }
         if let envParent = table["env"]?.table {
             for key in envParent.keys {
-                if let envTable = envParent[key]?.table { cfg.environments[key] = Self.parseVarMap(envTable) }
+                if let envTable = envParent[key]?.table { cfg.environments[key] = Self.parseVarList(envTable) }
             }
         }
         return cfg
@@ -29,10 +29,10 @@ public struct ConfigStore {
         let root = TOMLTable()
         if let active = cfg.active { root["active"] = active }
         root["launchctl_sync"] = cfg.launchctlSync
-        if !cfg.base.isEmpty { root["base"] = Self.serializeVarMap(cfg.base) }
+        if !cfg.base.isEmpty { root["base"] = Self.serializeVarList(cfg.base) }
         if !cfg.environments.isEmpty {
             let envParent = TOMLTable()
-            for (name, vars) in cfg.environments { envParent[name] = Self.serializeVarMap(vars) }
+            for (name, vars) in cfg.environments { envParent[name] = Self.serializeVarList(vars) }
             root["env"] = envParent
         }
         let text = root.convert()
@@ -40,17 +40,41 @@ public struct ConfigStore {
         try AtomicWrite.write(text, to: paths.configFile, posixPermissions: 0o644)
     }
 
-    private static func parseVarMap(_ table: TOMLTable) -> VarMap {
-        var map: VarMap = [:]
-        for key in table.keys {
-            if let s = table[key]?.string { map[key] = s }
+    /// New format: a `vars` array of tables ({key, value, group?}) preserving order.
+    /// Legacy format: plain KEY = "value" pairs directly on the layer table;
+    /// migrated to ungrouped entries sorted by key.
+    private static func parseVarList(_ table: TOMLTable) -> VarList {
+        var list: VarList = []
+        if let varsArray = table["vars"]?.array {
+            for item in varsArray {
+                guard let entryTable = item.table,
+                      let key = entryTable["key"]?.string,
+                      let value = entryTable["value"]?.string else { continue }
+                let group = entryTable["group"]?.string
+                list.append(VarEntry(key: key, value: value,
+                                     group: (group?.isEmpty == true) ? nil : group))
+            }
         }
-        return map
+        // Legacy plain key/value pairs (skip the reserved "vars" key).
+        let legacyKeys = table.keys.filter { $0 != "vars" && table[$0]?.string != nil }
+        for key in legacyKeys.sorted() {
+            if list.contains(where: { $0.key == key }) { continue }
+            list.append(VarEntry(key: key, value: table[key]!.string!, group: nil))
+        }
+        return list
     }
 
-    private static func serializeVarMap(_ map: VarMap) -> TOMLTable {
-        let table = TOMLTable()
-        for (key, value) in map { table[key] = value }
-        return table
+    private static func serializeVarList(_ list: VarList) -> TOMLTable {
+        let layer = TOMLTable()
+        let vars = TOMLArray()
+        for entry in list {
+            let t = TOMLTable()
+            t["key"] = entry.key
+            t["value"] = entry.value
+            if let group = entry.group, !group.isEmpty { t["group"] = group }
+            vars.append(t)
+        }
+        layer["vars"] = vars
+        return layer
     }
 }

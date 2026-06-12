@@ -11,11 +11,16 @@ final class AppModel: ObservableObject {
     @Published var variables: [VariableRow] = []
     @Published var launchctlSync = false
     @Published var lastError: String?
+    @Published var searchText = ""
 
     struct VariableRow: Identifiable {
-        let id = UUID()
+        /// Stable identity by key (keys are unique within a layer).
+        var id: String { key }
         var key: String
         var value: String
+        var group: String?
+        /// Position in the layer's full ordered list (for move operations).
+        var index: Int
     }
 
     private let service = EnvSwitchService(paths: .resolved())
@@ -35,11 +40,30 @@ final class AppModel: ObservableObject {
         guard let env = selectedEnvironment else { variables = []; return }
         do {
             let cfg = try service.loadConfig()
-            let map = env == "base" ? cfg.base : (cfg.environments[env] ?? [:])
-            variables = map.keys.sorted().map { key in
-                VariableRow(key: key, value: map[key]!)
+            let list = env == "base" ? cfg.base : (cfg.environments[env] ?? [])
+            variables = list.enumerated().map { idx, entry in
+                VariableRow(key: entry.key, value: entry.value, group: entry.group, index: idx)
             }
         } catch { lastError = "\(error)" }
+    }
+
+    /// Rows matching the search text (case-insensitive on key/value). Empty search = all.
+    var filteredVariables: [VariableRow] {
+        let q = searchText.trimmingCharacters(in: .whitespaces)
+        guard !q.isEmpty else { return variables }
+        return variables.filter {
+            $0.key.localizedCaseInsensitiveContains(q) || $0.value.localizedCaseInsensitiveContains(q)
+        }
+    }
+
+    /// Existing group names in first-appearance order.
+    var groupNames: [String] {
+        var seen = Set<String>()
+        var names: [String] = []
+        for row in variables {
+            if let g = row.group, !g.isEmpty, seen.insert(g).inserted { names.append(g) }
+        }
+        return names
     }
 
     func activate(_ name: String) {
@@ -56,10 +80,30 @@ final class AppModel: ObservableObject {
         catch { lastError = "\(error)" }
     }
 
-    func setVariable(key: String, value: String) {
+    func setVariable(key: String, value: String, group: String? = nil) {
         guard let env = selectedEnvironment else { return }
         let target = env == "base" ? nil : env
-        do { try service.setVariable(environment: target, key: key, value: value); loadVariables() }
+        let normalized = (group?.isEmpty == true) ? nil : group
+        do {
+            try service.setVariable(environment: target, key: key, value: value,
+                                    group: normalized == nil ? nil : .some(normalized))
+            loadVariables()
+        } catch { lastError = "\(error)" }
+    }
+
+    /// Move a row to a new position in the layer's full ordered list.
+    func moveVariable(fromIndex: Int, toIndex: Int) {
+        guard let env = selectedEnvironment else { return }
+        let target = env == "base" ? nil : env
+        do { try service.moveVariable(environment: target, fromIndex: fromIndex, toIndex: toIndex); loadVariables() }
+        catch { lastError = "\(error)" }
+    }
+
+    /// Assign or clear (nil) a row's group.
+    func setGroup(key: String, group: String?) {
+        guard let env = selectedEnvironment else { return }
+        let target = env == "base" ? nil : env
+        do { try service.setGroup(environment: target, key: key, group: group); loadVariables() }
         catch { lastError = "\(error)" }
     }
 

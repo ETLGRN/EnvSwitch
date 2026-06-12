@@ -3,8 +3,10 @@ import Testing
 
 @Test func testEnvOverridesBase() throws {
     let cfg = EnvConfig(
-        base: ["LANG": "zh_CN.UTF-8", "API_HOST": "base.example.com"],
-        environments: ["dev": ["API_HOST": "dev.example.com", "TOKEN": "abc123"]]
+        base: [VarEntry(key: "LANG", value: "zh_CN.UTF-8"),
+               VarEntry(key: "API_HOST", value: "base.example.com")],
+        environments: ["dev": [VarEntry(key: "API_HOST", value: "dev.example.com"),
+                               VarEntry(key: "TOKEN", value: "abc123")]]
     )
     let merged = try Merge.merged(config: cfg, environment: "dev")
     #expect(merged["LANG"] == "zh_CN.UTF-8")
@@ -13,7 +15,7 @@ import Testing
 }
 
 @Test func testUnknownEnvironmentThrows() throws {
-    let cfg2 = EnvConfig(environments: ["dev": [:]])
+    let cfg2 = EnvConfig(environments: ["dev": []])
     #expect(throws: EnvSwitchError.environmentNotFound("nope")) {
         _ = try Merge.merged(config: cfg2, environment: "nope")
     }

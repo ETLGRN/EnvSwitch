@@ -9,6 +9,7 @@
 ## 功能特性
 
 - base 公共层 + 多个环境覆盖，一键切换激活的环境。
+- 变量支持**分组**（可折叠，像文件夹）、**拖拽排序 / 上移下移**、**实时搜索**；默认按添加顺序排列。
 - **GUI**（菜单栏快速切换 + 编辑窗口）与 **CLI**（`envswitch`）共用同一套核心逻辑。
 - 单一 TOML 配置文件，位于 `~/.config/envswitch/`，不污染你的项目目录。
 - 新开终端通过 zsh hook 自动加载当前环境；已打开的终端用一条命令即可应用。
@@ -17,7 +18,7 @@
 
 ## 快速上手
 
-1. **安装** —— 打开 `dist/EnvSwitch-0.1.0.dmg`，把 **EnvSwitch.app** 拖到「应用程序」（首次启动：右键 →「打开」）。或从源码构建（见 [安装](#安装)）。
+1. **安装** —— 打开 `dist/EnvSwitch-0.2.0.dmg`，把 **EnvSwitch.app** 拖到「应用程序」（首次启动：右键 →「打开」）。或从源码构建（见 [安装](#安装)）。
 2. **添加变量** —— 打开 EnvSwitch，选择 `base` 或新建一个环境，在底部填入 `KEY` / 值。点 **Activate** 把某个环境设为当前激活（放在 `base` 里的变量即使不激活也始终生效）。
 3. **接入你的 shell** —— 接受首次启动的提示安装 zsh hook（或执行 `envswitch shell-init >> ~/.zshrc`）。
 4. **开始使用** —— 新开一个终端，变量就已加载。对于已经打开的终端，运行 `eval "$(envswitch export)"`。
@@ -39,22 +40,37 @@
 
 一个位于 `~/.config/envswitch/config.toml` 的 TOML 文件，包含一个共享的 `base` 层和各环境的覆盖项。激活环境的最终变量 = `base` 合并该环境（环境的同名键优先）。
 
+每层的变量以「数组表」存储 —— **保留添加顺序**，并可带一个可选的 `group`（仅用于 GUI 展示分组，不影响导出）：
+
 ```toml
 active = "dev"                 # 当前激活的环境
 launchctl_sync = false         # 是否通过 launchctl setenv 同步给 GUI 程序
 
-[base]                         # 始终生效
-LANG = "zh_CN.UTF-8"
-EDITOR = "vim"
+[[base.vars]]                  # 始终生效
+key = "LANG"
+value = "zh_CN.UTF-8"
 
-[env.dev]
-API_HOST = "dev.example.com"
-TOKEN = "dev-token"
+[[base.vars]]
+key = "EDITOR"
+value = "vim"
 
-[env.prod]
-API_HOST = "prod.example.com"
-TOKEN = "prod-token"
+[[env.dev.vars]]
+key = "API_HOST"
+value = "dev.example.com"
+group = "api"                  # 可选：GUI 中折叠分组
+
+[[env.dev.vars]]
+key = "TOKEN"
+value = "dev-token"
+
+[[env.prod.vars]]
+key = "API_HOST"
+value = "prod.example.com"
 ```
+
+> **旧格式自动迁移**：0.1.x 的普通键值表（如 `[env.dev]` 下直接 `KEY = "value"`）仍可读取 —— 加载时会按键名字母序转换为未分组条目，下次保存时自动写成新格式，无需手动处理。
+>
+> `active.env` 的导出顺序始终保持按 key 字母序 —— 分组与排序只影响 GUI 展示，不改变导出语义。
 
 所有值都以明文形式存储在 `config.toml` 中，生成的 `active.env`（权限 `600`）保存供 shell 读取的最终值。由于环境变量一旦 export 出去本质上就是明文，EnvSwitch 不尝试加密；如果在意保密，请不要把 `config.toml` 同步/提交到别处。
 
@@ -62,7 +78,7 @@ TOKEN = "prod-token"
 
 ### 方式一：使用预编译的 App（.dmg）
 
-1. 打开 `dist/EnvSwitch-0.1.0.dmg`，把 **EnvSwitch.app** 拖到「应用程序」。
+1. 打开 `dist/EnvSwitch-0.2.0.dmg`，把 **EnvSwitch.app** 拖到「应用程序」。
 2. 仅首次启动：因为 App 是 ad-hoc 签名（未公证），需要右键 →「**打开**」，或执行：
    ```bash
    xattr -dr com.apple.quarantine /Applications/EnvSwitch.app
@@ -98,6 +114,7 @@ envswitch reload               # 根据 base + 激活环境重新生成 active.e
 envswitch current              # 显示当前激活环境及其导出内容
 envswitch get KEY              # 打印某个变量解析后的值
 envswitch set <env> KEY VALUE  # 设置变量（用 "base" 作为 <env> 表示 base 层）
+envswitch set <env> KEY VALUE --group <name>   # 设置变量并归入分组（仅影响 GUI 展示）
 envswitch unset <env> KEY      # 删除变量
 envswitch add <env>            # 新建环境
 envswitch rm <env>             # 删除环境
@@ -117,7 +134,10 @@ eval "$(envswitch export)"   # 立即应用到当前这个 shell
 ## 图形界面
 
 - **菜单栏**（`switch.2` 图标）：列出所有环境，激活的那个带实心圆点 —— 点击即可立即切换。还提供「编辑环境…」和「使用说明…」（都会打开主窗口）。
-- **主窗口**：左侧是 `base` + 你的各个环境，右侧是所选层的变量表。在底部用 `KEY` / 值字段添加变量；**双击**（或右键 → 复制，或点复制图标）即可复制 key 或值；垃圾桶图标删除变量。
+- **主窗口**：左侧是 `base` + 你的各个环境，右侧是所选层的变量列表。在底部用 `KEY` / 值 / 分组（可选）字段添加变量；**双击**（或右键 → 复制，或点复制图标）即可复制 key 或值；垃圾桶图标删除变量。
+  - **分组**：带分组的变量折叠在可展开的「文件夹」里（折叠状态会记住），未分组的平铺在最上方。右键 →「移动到分组…」可把变量移入现有分组、新建分组或移出分组。
+  - **排序**：默认按添加顺序；组内**拖拽**即可调整顺序，右键菜单也提供「上移 / 下移」。
+  - **搜索**：顶部搜索框按 key / value 实时过滤（搜索时分组自动展开、拖拽暂时禁用）。
   - **Activate** 把选中环境设为激活；**Reload** 按需重新生成 `active.env`。底部显示给已打开终端用的 `eval "$(envswitch export)"` 命令（带复制按钮）。
   - **?** 按钮打开应用内的中文使用说明，涵盖激活、应用到终端、安装 CLI。
 - **设置**：开关 launchctl 同步。
@@ -143,7 +163,7 @@ eval "$(envswitch export)"   # 立即应用到当前这个 shell
 scripts/package.sh
 # 产物：
 #   dist/EnvSwitch.app
-#   dist/EnvSwitch-0.1.0.dmg
+#   dist/EnvSwitch-0.2.0.dmg
 ```
 
 脚本对 bundle 进行 ad-hoc 签名（无需 Apple 开发者账号）。GUI 是 bundle 的主可执行文件（`Contents/MacOS/EnvSwitch`），`envswitch` CLI 内嵌在 `Contents/Resources/envswitch`（之所以不放 `MacOS/`，是因为 macOS 卷默认大小写不敏感，`EnvSwitch` 与 `envswitch` 会冲突）。首次启动时 App 会引导安装 zsh hook 并显示把内嵌 CLI 软链到 PATH 的命令。

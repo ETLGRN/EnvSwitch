@@ -20,7 +20,7 @@ public final class EnvSwitchService {
     // MARK: Mutations
     public func addEnvironment(_ name: String) throws {
         var cfg = try store.load()
-        if cfg.environments[name] == nil { cfg.environments[name] = [:] }
+        if cfg.environments[name] == nil { cfg.environments[name] = [] }
         try store.save(cfg)
     }
 
@@ -34,11 +34,13 @@ public final class EnvSwitchService {
     }
 
     /// environment == nil targets the base layer.
-    public func setVariable(environment: String?, key: String, value: String) throws {
+    /// Existing keys update in place (keeping position; group untouched unless
+    /// explicitly provided); new keys append at the end.
+    public func setVariable(environment: String?, key: String, value: String, group: String?? = nil) throws {
         var cfg = try store.load()
         if let env = environment, cfg.environments[env] == nil { throw EnvSwitchError.environmentNotFound(env) }
-        if let env = environment { cfg.environments[env, default: [:]][key] = value }
-        else { cfg.base[key] = value }
+        if let env = environment { cfg.environments[env, default: []].setValue(value, forKey: key, group: group) }
+        else { cfg.base.setValue(value, forKey: key, group: group) }
         try store.save(cfg)
         // Keep active.env in sync so edits to base / the active environment go live.
         try regenerateActiveFile(cfg: cfg)
@@ -46,10 +48,47 @@ public final class EnvSwitchService {
 
     public func unsetVariable(environment: String?, key: String) throws {
         var cfg = try store.load()
-        if let env = environment { cfg.environments[env]?[key] = nil }
-        else { cfg.base[key] = nil }
+        if let env = environment { cfg.environments[env]?.removeValue(forKey: key) }
+        else { cfg.base.removeValue(forKey: key) }
         try store.save(cfg)
         try regenerateActiveFile(cfg: cfg)
+    }
+
+    /// Reorder an entry within a layer (indices into the layer's full VarList).
+    /// environment == nil targets the base layer. Export semantics are unaffected.
+    public func moveVariable(environment: String?, fromIndex: Int, toIndex: Int) throws {
+        var cfg = try store.load()
+        if let env = environment {
+            guard var list = cfg.environments[env] else { throw EnvSwitchError.environmentNotFound(env) }
+            Self.move(&list, from: fromIndex, to: toIndex)
+            cfg.environments[env] = list
+        } else {
+            Self.move(&cfg.base, from: fromIndex, to: toIndex)
+        }
+        try store.save(cfg)
+    }
+
+    /// Assign (or clear, with nil/empty) the group of an existing key.
+    public func setGroup(environment: String?, key: String, group: String?) throws {
+        var cfg = try store.load()
+        let normalized = (group?.isEmpty == true) ? nil : group
+        if let env = environment {
+            guard var list = cfg.environments[env] else { throw EnvSwitchError.environmentNotFound(env) }
+            guard let idx = list.firstIndex(where: { $0.key == key }) else { return }
+            list[idx].group = normalized
+            cfg.environments[env] = list
+        } else {
+            guard let idx = cfg.base.firstIndex(where: { $0.key == key }) else { return }
+            cfg.base[idx].group = normalized
+        }
+        try store.save(cfg)
+    }
+
+    private static func move(_ list: inout VarList, from: Int, to: Int) {
+        guard list.indices.contains(from), to >= 0, to <= list.count, from != to else { return }
+        let entry = list.remove(at: from)
+        let dest = to > from ? to - 1 : to
+        list.insert(entry, at: Swift.min(dest, list.count))
     }
 
     // MARK: Activation
@@ -81,7 +120,7 @@ public final class EnvSwitchService {
 
     /// base merged with the named environment (environment wins). nil → base only.
     private func mergedMap(cfg: EnvConfig, environment: String?) throws -> VarMap {
-        guard let environment else { return cfg.base }
+        guard let environment else { return cfg.base.asMap }
         return try Merge.merged(config: cfg, environment: environment)
     }
 

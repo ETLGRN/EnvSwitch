@@ -9,6 +9,7 @@ Configuration lives under your home directory at `~/.config/envswitch/` — neve
 ## Features
 
 - Multiple environment profiles plus a shared **base** layer; switch with one click.
+- Variables support **groups** (collapsible, folder-like), **drag-and-drop / move up-down reordering**, and **live search**; default ordering is insertion order.
 - **GUI** (menu-bar quick switch + editor window) and **CLI** (`envswitch`) that share one core.
 - Single TOML config under `~/.config/envswitch/` — nothing in your project folders.
 - New terminals auto-load the active environment via a zsh hook; apply to an already-open shell with one command.
@@ -17,7 +18,7 @@ Configuration lives under your home directory at `~/.config/envswitch/` — neve
 
 ## Quick start
 
-1. **Install** — open `dist/EnvSwitch-0.1.0.dmg`, drag **EnvSwitch.app** to *Applications* (first launch: right-click → **Open**). Or build from source (see [Install](#install)).
+1. **Install** — open `dist/EnvSwitch-0.2.0.dmg`, drag **EnvSwitch.app** to *Applications* (first launch: right-click → **Open**). Or build from source (see [Install](#install)).
 2. **Add variables** — open EnvSwitch, pick `base` or create an environment, add `KEY` / value at the bottom. Click **Activate** to make an environment current (variables in `base` apply even without activating).
 3. **Wire up your shell** — accept the first-run prompt to install the zsh hook (or run `envswitch shell-init >> ~/.zshrc`).
 4. **Use it** — open a new terminal and your variables are loaded. For a terminal that is already open, run `eval "$(envswitch export)"`.
@@ -39,22 +40,37 @@ Only **zsh** is supported.
 
 A single TOML file at `~/.config/envswitch/config.toml` with a shared `base` layer plus per-environment overrides. The active environment's effective variables are `base` merged with the environment (environment keys win).
 
+Each layer stores its variables as an **array of tables** — preserving insertion order, with an optional `group` (display-only; it never affects exports):
+
 ```toml
 active = "dev"                 # currently active environment
 launchctl_sync = false         # sync to GUI apps via launchctl setenv
 
-[base]                         # always applied
-LANG = "zh_CN.UTF-8"
-EDITOR = "vim"
+[[base.vars]]                  # always applied
+key = "LANG"
+value = "zh_CN.UTF-8"
 
-[env.dev]
-API_HOST = "dev.example.com"
-TOKEN = "dev-token"
+[[base.vars]]
+key = "EDITOR"
+value = "vim"
 
-[env.prod]
-API_HOST = "prod.example.com"
-TOKEN = "prod-token"
+[[env.dev.vars]]
+key = "API_HOST"
+value = "dev.example.com"
+group = "api"                  # optional: collapsible group in the GUI
+
+[[env.dev.vars]]
+key = "TOKEN"
+value = "dev-token"
+
+[[env.prod.vars]]
+key = "API_HOST"
+value = "prod.example.com"
 ```
+
+> **Legacy format migrates automatically**: 0.1.x plain key/value tables (e.g. `KEY = "value"` directly under `[env.dev]`) still load — entries are converted to ungrouped ones sorted by key, and the next save rewrites the file in the new format. No manual action needed.
+>
+> `active.env` export order remains alphabetical by key — groups and ordering only affect the GUI, never export semantics.
 
 All values are stored as plain text in `config.toml`, and the generated `active.env` (mode `600`) holds the resolved values the shell sources. Because environment variables are inherently plain text once exported, EnvSwitch does not attempt to encrypt them; keep secrets out of any synced/committed copy of `config.toml` if that matters to you.
 
@@ -62,7 +78,7 @@ All values are stored as plain text in `config.toml`, and the generated `active.
 
 ### From the prebuilt app (.dmg)
 
-1. Open `dist/EnvSwitch-0.1.0.dmg` and drag **EnvSwitch.app** to *Applications*.
+1. Open `dist/EnvSwitch-0.2.0.dmg` and drag **EnvSwitch.app** to *Applications*.
 2. First launch only: because the app is ad-hoc signed (not notarized), right-click it → **Open**, or run:
    ```bash
    xattr -dr com.apple.quarantine /Applications/EnvSwitch.app
@@ -98,6 +114,7 @@ envswitch reload               # regenerate active.env from base + the active en
 envswitch current              # show the active environment and its exports
 envswitch get KEY              # print a resolved variable value
 envswitch set <env> KEY VALUE  # set a variable (use "base" as <env> for the base layer)
+envswitch set <env> KEY VALUE --group <name>   # set a variable and assign it to a group (display-only)
 envswitch unset <env> KEY      # remove a variable
 envswitch add <env>            # create an environment
 envswitch rm <env>             # delete an environment
@@ -117,7 +134,10 @@ eval "$(envswitch export)"   # apply to THIS shell right now
 ## GUI
 
 - **Menu bar** (`switch.2` icon): the list of environments with a filled dot on the active one — click to switch instantly. Also offers *Edit Environments…* and *How to use…* (both open the main window).
-- **Main window**: a sidebar with `base` + your environments, and a table of the selected layer's variables. Add variables with the KEY / value fields at the bottom; **double-click** (or right-click → Copy, or the copy icon) to copy a key or value; the trash icon deletes a variable.
+- **Main window**: a sidebar with `base` + your environments, and a list of the selected layer's variables. Add variables with the KEY / value / optional group fields at the bottom; **double-click** (or right-click → Copy, or the copy icon) to copy a key or value; the trash icon deletes a variable.
+  - **Groups**: grouped variables fold into expandable "folders" (collapse state is remembered); ungrouped ones sit flat at the top. Right-click → *Move to group…* moves a variable into an existing group, a new group, or out of its group.
+  - **Ordering**: insertion order by default; **drag** within a group to reorder, or use *Move up / Move down* in the context menu.
+  - **Search**: the search field at the top filters by key / value live (groups auto-expand and dragging is disabled while searching).
   - **Activate** sets the selected environment as active; **Reload** regenerates `active.env` on demand. A footer shows the `eval "$(envswitch export)"` command (with a copy button) for already-open terminals.
   - The **?** button opens an in-app usage guide covering activation, applying to a terminal, and installing the CLI.
 - **Settings**: toggle launchctl sync.
@@ -143,7 +163,7 @@ Run the bundled script — it builds release binaries, assembles a signed `.app`
 scripts/package.sh
 # Produces:
 #   dist/EnvSwitch.app
-#   dist/EnvSwitch-0.1.0.dmg
+#   dist/EnvSwitch-0.2.0.dmg
 ```
 
 The script ad-hoc code-signs the bundle (no Apple Developer account needed). The GUI is the bundle's main executable (`Contents/MacOS/EnvSwitch`), and the `envswitch` CLI is embedded at `Contents/Resources/envswitch` (kept out of `MacOS/` because macOS volumes are case-insensitive and `EnvSwitch`/`envswitch` would otherwise collide). On first launch the app offers to install the zsh hook and shows the command to symlink the embedded CLI onto your PATH.

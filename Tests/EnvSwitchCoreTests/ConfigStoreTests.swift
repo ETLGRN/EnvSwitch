@@ -16,15 +16,59 @@ private func makeTempPaths() throws -> EnvPaths {
     let cfg = EnvConfig(
         active: "dev",
         launchctlSync: true,
-        base: ["LANG": "zh_CN.UTF-8"],
+        base: [VarEntry(key: "LANG", value: "zh_CN.UTF-8")],
         environments: [
-            "dev": ["API_HOST": "dev.example.com", "TOKEN": "abc123"],
-            "prod": ["API_HOST": "prod.example.com"],
+            "dev": [VarEntry(key: "API_HOST", value: "dev.example.com", group: "api"),
+                    VarEntry(key: "TOKEN", value: "abc123")],
+            "prod": [VarEntry(key: "API_HOST", value: "prod.example.com")],
         ]
     )
     try store.save(cfg)
     let loaded = try store.load()
     #expect(loaded == cfg)
+}
+
+@Test func roundTripPreservesInsertionOrder() throws {
+    let paths = try makeTempPaths()
+    let store = ConfigStore(paths: paths)
+    // Deliberately non-alphabetical order.
+    let vars: VarList = [
+        VarEntry(key: "ZULU", value: "1"),
+        VarEntry(key: "ALPHA", value: "2", group: "g"),
+        VarEntry(key: "MIKE", value: "3"),
+    ]
+    try store.save(EnvConfig(environments: ["dev": vars]))
+    let loaded = try store.load()
+    #expect(loaded.environments["dev"]?.map(\.key) == ["ZULU", "ALPHA", "MIKE"])
+    #expect(loaded.environments["dev"]?[1].group == "g")
+}
+
+@Test func legacyPlainTableMigratesToOrderedEntries() throws {
+    let paths = try makeTempPaths()
+    let legacy = """
+    active = "dev"
+    launchctl_sync = false
+
+    [base]
+    LANG = "zh_CN.UTF-8"
+
+    [env.dev]
+    TOKEN = "abc123"
+    API_HOST = "dev.example.com"
+    """
+    try legacy.write(to: paths.configFile, atomically: true, encoding: .utf8)
+    let store = ConfigStore(paths: paths)
+    let loaded = try store.load()
+    // Legacy keys come in sorted by name, ungrouped.
+    #expect(loaded.base == [VarEntry(key: "LANG", value: "zh_CN.UTF-8")])
+    #expect(loaded.environments["dev"]?.map(\.key) == ["API_HOST", "TOKEN"])
+    #expect(loaded.environments["dev"]?.allSatisfy { $0.group == nil } == true)
+
+    // Saving rewrites in the new array-of-tables format.
+    try store.save(loaded)
+    let text = try String(contentsOf: paths.configFile, encoding: .utf8)
+    #expect(text.contains("[[env.dev.vars]]"))
+    #expect(try store.load() == loaded)
 }
 
 @Test func loadMissingReturnsEmpty() throws {
