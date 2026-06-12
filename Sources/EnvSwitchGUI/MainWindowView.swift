@@ -12,6 +12,13 @@ struct MainWindowView: View {
     @State private var showHelp = false
     @State private var moveTargetRow: AppModel.VariableRow?
     @State private var moveGroupName = ""
+    @State private var renameTarget: GroupRenameTarget?
+    @State private var renameGroupText = ""
+
+    struct GroupRenameTarget: Identifiable {
+        let name: String
+        var id: String { name }
+    }
     /// Collapsed group tokens ("env::group"), persisted as a GUI preference.
     @AppStorage("envswitch.collapsedGroups") private var collapsedGroupsData = "[]"
 
@@ -36,6 +43,9 @@ struct MainWindowView: View {
         }
         .sheet(item: $moveTargetRow) { row in
             moveToGroupSheet(row)
+        }
+        .sheet(item: $renameTarget) { target in
+            renameGroupSheet(target)
         }
         .onChange(of: model.lastError) { _, newValue in showError = (newValue != nil) }
         .onAppear { showFirstRun = model.needsHook }
@@ -158,6 +168,12 @@ struct MainWindowView: View {
                 } label: {
                     Label("\(group)（\(rows.filter { $0.group == group }.count)）", systemImage: "folder")
                         .font(.callout.weight(.medium))
+                        .contextMenu {
+                            Button("重命名分组…") {
+                                renameGroupText = group
+                                renameTarget = GroupRenameTarget(name: group)
+                            }
+                        }
                 }
             }
         }
@@ -193,12 +209,14 @@ struct MainWindowView: View {
     private func variableRow(_ row: AppModel.VariableRow, sectionRows: [AppModel.VariableRow]) -> some View {
         HStack(spacing: 12) {
             // Fixed-width key column so values line up regardless of key length.
+            // No .textSelection here: it swallows double-clicks (word selection),
+            // which would break double-click-to-copy.
             Text(row.key)
                 .font(.system(.body, design: .monospaced))
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .frame(width: keyColumnWidth, alignment: .leading)
-                .textSelection(.enabled)
+                .contentShape(Rectangle())
                 .onTapGesture(count: 2) { model.copyString(row.key) }
                 .help("\(row.key)（双击复制）")
             Divider().frame(height: 14)
@@ -207,7 +225,7 @@ struct MainWindowView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)
-                .textSelection(.enabled)
+                .contentShape(Rectangle())
                 .onTapGesture(count: 2) { model.copyValue(row) }
                 .help("\(row.value)（双击复制）")
             HStack(spacing: 10) {
@@ -271,6 +289,30 @@ struct MainWindowView: View {
                 }
                 .keyboardShortcut(.defaultAction)
                 .disabled(moveGroupName.trimmingCharacters(in: .whitespaces).isEmpty)
+            }
+        }
+        .padding(20)
+    }
+
+    private func renameGroupSheet(_ target: GroupRenameTarget) -> some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("重命名分组「\(target.name)」").font(.headline)
+            TextField("新名称", text: $renameGroupText)
+                .frame(width: 240)
+            Text("重命名为已存在的分组会将两组合并。")
+                .font(.footnote).foregroundStyle(.secondary)
+            HStack {
+                Spacer()
+                Button("取消") { renameTarget = nil }
+                Button("确定") {
+                    let name = renameGroupText.trimmingCharacters(in: .whitespaces)
+                    if !name.isEmpty, name != target.name {
+                        model.renameGroup(from: target.name, to: name)
+                    }
+                    renameTarget = nil
+                }
+                .keyboardShortcut(.defaultAction)
+                .disabled(renameGroupText.trimmingCharacters(in: .whitespaces).isEmpty)
             }
         }
         .padding(20)

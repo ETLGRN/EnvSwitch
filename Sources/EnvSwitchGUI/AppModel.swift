@@ -99,6 +99,14 @@ final class AppModel: ObservableObject {
         catch { lastError = "\(error)" }
     }
 
+    /// Rename a group within the current layer.
+    func renameGroup(from: String, to: String) {
+        guard let env = selectedEnvironment else { return }
+        let target = env == "base" ? nil : env
+        do { try service.renameGroup(environment: target, from: from, to: to); loadVariables() }
+        catch { lastError = "\(error)" }
+    }
+
     /// Assign or clear (nil) a row's group.
     func setGroup(key: String, group: String?) {
         guard let env = selectedEnvironment else { return }

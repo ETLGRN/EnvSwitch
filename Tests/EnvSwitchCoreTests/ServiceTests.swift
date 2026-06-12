@@ -106,6 +106,27 @@ private func makeFixture() throws -> ServiceFixture {
     #expect(aIdx < zIdx)
 }
 
+@Test func testRenameGroupRenamesAllEntriesAndMerges() throws {
+    let f = try makeFixture()
+    try f.service.addEnvironment("dev")
+    try f.service.setVariable(environment: "dev", key: "A", value: "1", group: .some("old"))
+    try f.service.setVariable(environment: "dev", key: "B", value: "2", group: .some("old"))
+    try f.service.setVariable(environment: "dev", key: "C", value: "3", group: .some("other"))
+
+    try f.service.renameGroup(environment: "dev", from: "old", to: "new")
+    var groups = try f.service.loadConfig().environments["dev"]!.map(\.group)
+    #expect(groups == ["new", "new", "other"])
+
+    // Renaming onto an existing group merges.
+    try f.service.renameGroup(environment: "dev", from: "new", to: "other")
+    groups = try f.service.loadConfig().environments["dev"]!.map(\.group)
+    #expect(groups == ["other", "other", "other"])
+
+    // Empty / identical target is a no-op.
+    try f.service.renameGroup(environment: "dev", from: "other", to: "  ")
+    #expect(try f.service.loadConfig().environments["dev"]!.map(\.group) == ["other", "other", "other"])
+}
+
 @Test func testMoveInUnknownEnvironmentThrows() throws {
     let f = try makeFixture()
     #expect(throws: EnvSwitchError.environmentNotFound("ghost")) {

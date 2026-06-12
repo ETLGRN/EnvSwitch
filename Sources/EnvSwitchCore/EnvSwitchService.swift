@@ -68,6 +68,27 @@ public final class EnvSwitchService {
         try store.save(cfg)
     }
 
+    /// Rename a group across a layer. Renaming onto an existing group merges them.
+    public func renameGroup(environment: String?, from: String, to: String) throws {
+        let target = to.trimmingCharacters(in: .whitespaces)
+        guard !target.isEmpty, target != from else { return }
+        var cfg = try store.load()
+        if let env = environment {
+            guard var list = cfg.environments[env] else { throw EnvSwitchError.environmentNotFound(env) }
+            Self.rename(&list, from: from, to: target)
+            cfg.environments[env] = list
+        } else {
+            Self.rename(&cfg.base, from: from, to: target)
+        }
+        try store.save(cfg)
+    }
+
+    private static func rename(_ list: inout VarList, from: String, to: String) {
+        for idx in list.indices where list[idx].group == from {
+            list[idx].group = to
+        }
+    }
+
     /// Assign (or clear, with nil/empty) the group of an existing key.
     public func setGroup(environment: String?, key: String, group: String?) throws {
         var cfg = try store.load()
