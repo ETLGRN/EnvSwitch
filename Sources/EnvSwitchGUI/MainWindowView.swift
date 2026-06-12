@@ -180,14 +180,28 @@ struct MainWindowView: View {
         .moveDisabled(isSearching)
     }
 
+    /// Width of the key column: sized to the longest key in the current layer,
+    /// clamped so one extreme key can't push values off-screen.
+    private var keyColumnWidth: CGFloat {
+        let font = NSFont.monospacedSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+        let widest = model.variables
+            .map { ($0.key as NSString).size(withAttributes: [.font: font]).width }
+            .max() ?? 0
+        return min(max(widest + 12, 100), 280)
+    }
+
     private func variableRow(_ row: AppModel.VariableRow, sectionRows: [AppModel.VariableRow]) -> some View {
         HStack(spacing: 12) {
+            // Fixed-width key column so values line up regardless of key length.
             Text(row.key)
                 .font(.system(.body, design: .monospaced))
-                .frame(minWidth: 120, alignment: .leading)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .frame(width: keyColumnWidth, alignment: .leading)
                 .textSelection(.enabled)
                 .onTapGesture(count: 2) { model.copyString(row.key) }
-                .help("双击复制 key")
+                .help("\(row.key)（双击复制）")
+            Divider().frame(height: 14)
             Text(row.value)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
@@ -195,7 +209,7 @@ struct MainWindowView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .textSelection(.enabled)
                 .onTapGesture(count: 2) { model.copyValue(row) }
-                .help("双击复制 value")
+                .help("\(row.value)（双击复制）")
             HStack(spacing: 10) {
                 Button { model.copyValue(row) } label: { Image(systemName: "doc.on.doc") }
                     .buttonStyle(.borderless)
